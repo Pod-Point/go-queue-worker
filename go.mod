@@ -1,4 +1,4 @@
-module github.com/francescopepe/formigo
+module github.com/Pod-Point/go-queue-worker
 
 go 1.21
 

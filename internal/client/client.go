@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	"github.com/francescopepe/formigo/internal/messages"
+	"github.com/Pod-Point/go-queue-worker/internal/messages"
 )
 
 type MessageReceiver interface {
