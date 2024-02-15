@@ -1,6 +1,6 @@
 package client
 
-import "github.com/francescopepe/formigo/internal/messages"
+import "github.com/Pod-Point/go-queue-worker/internal/messages"
 
 type MessageReceiver interface {
 	ReceiveMessages() ([]messages.Message, error)

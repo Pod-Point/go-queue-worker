@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/francescopepe/formigo/internal/client"
+	"github.com/Pod-Point/go-queue-worker/internal/client"
 )
 
 const (

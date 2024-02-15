@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/francescopepe/formigo/internal/messages"
+	"github.com/Pod-Point/go-queue-worker/internal/messages"
 )
 
 type singleMessageHandler = func(ctx context.Context, msg interface{}) error
