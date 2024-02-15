@@ -1,4 +1,4 @@
-package formigo
+package worker
 
 import (
 	"context"
