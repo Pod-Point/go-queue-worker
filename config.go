@@ -33,13 +33,13 @@ type ErrorConfiguration struct {
 	// Default: 120s.
 	Period time.Duration
 
-	// The error report function
-	ReportFunc func(err error)
+	// The error report function, returns a boolean value to decide whether the error counts towards to threshold
+	ReportFunc func(err error) bool
 }
 
-// The MultiMessageBufferConfiguration defines a buffer which is consumed by the worker when either
+// The BatchConsumerBufferConfiguration defines a buffer which is consumed by the worker when either
 // the buffer is full or the timeout has passed since the first message got added.
-type MultiMessageBufferConfiguration struct {
+type BatchConsumerBufferConfiguration struct {
 	// Max number of messages that the buffer can contain.
 	// Default: 10.
 	Size int
@@ -52,13 +52,13 @@ type MultiMessageBufferConfiguration struct {
 	Timeout time.Duration
 }
 
-type SingleMessageConsumerConfiguration struct {
-	Handler singleMessageHandler
+type MessageConsumerConfiguration struct {
+	Handler MessageHandler
 }
 
-type MultiMessageConsumerConfiguration struct {
-	Handler      multiMessageHandler
-	BufferConfig MultiMessageBufferConfiguration
+type BatchConsumerConfiguration struct {
+	Handler      BatchHandler
+	BufferConfig BatchConsumerBufferConfiguration
 }
 
 type Configuration struct {
@@ -83,7 +83,7 @@ type Configuration struct {
 	ErrorConfig ErrorConfiguration
 
 	// The messages Consumer.
-	Consumer consumer
+	Consumer Consumer
 
 	// Configuration for the deleter
 	DeleterConfig DeleterConfiguration
@@ -107,8 +107,10 @@ func setWorkerConfigValues(config Configuration) Configuration {
 	}
 
 	if config.ErrorConfig.ReportFunc == nil {
-		config.ErrorConfig.ReportFunc = func(err error) {
+		config.ErrorConfig.ReportFunc = func(err error) bool {
 			log.Println("ERROR", err)
+
+			return true
 		}
 	}
 

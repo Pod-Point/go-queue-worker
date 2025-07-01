@@ -6,9 +6,23 @@ import (
 )
 
 type Message struct {
-	Ctx       context.Context
-	CancelCtx context.CancelFunc
-	Msg       interface{}
+	Ctx          context.Context    `json:"-"` // Exclude from JSON
+	CancelCtx    context.CancelFunc `json:"-"` // Exclude from JSON
+	MsgId        interface{}        `json:"id"`
+	Msg          interface{}        `json:"content"`
+	ReceivedTime time.Time          `json:"receivedAt"`
+}
+
+func (m Message) Id() interface{} {
+	return m.MsgId
+}
+
+func (m Message) Content() interface{} {
+	return m.Msg
+}
+
+func (m Message) ReceivedAt() time.Time {
+	return m.ReceivedTime
 }
 
 type BufferConfiguration struct {
@@ -106,7 +120,7 @@ type BufferWithContextTimeoutConfiguration struct {
 	Size          int
 }
 
-// bufferWithContextTimeout is used to construct a buffer that has a context timeout
+// BufferWithContextTimeout is used to construct a buffer that has a context timeout
 // along with the standard buffer timeout. This is used because the messages have to
 // be processed within a certain period and if this doesn't happen, the buffer should
 // delete the messages in it and reset.
@@ -136,7 +150,7 @@ func (b *BufferWithContextTimeout) Add(msg Message) {
 
 // Reset resets its internal buffer, cancel the current context created and
 // reset any timeout.
-// It's important to call this function avoid memory leaks. In fact, the
+// It's important to call this function to avoid memory leaks. In fact, the
 // GC won't collect any timer or resources allocated within the context.
 // NOTE: this function should be always called to clean up any buffer
 // created. Used in defer can guarantee that it always run.
