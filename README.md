@@ -38,7 +38,7 @@ import (
     "fmt"
     "log"
 	
-    "github.com/Pod-Point/go-queue-worker"
+    formigo "github.com/Pod-Point/go-queue-worker"
     workerSqs "github.com/Pod-Point/go-queue-worker/clients/sqs"
 
     "github.com/aws/aws-sdk-go-v2/aws"
@@ -108,7 +108,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/Pod-Point/go-queue-worker"
+    formigo "github.com/Pod-Point/go-queue-worker"
     workerSqs "github.com/Pod-Point/go-queue-worker/clients/sqs"
 
     "github.com/aws/aws-sdk-go-v2/aws"

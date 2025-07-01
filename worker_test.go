@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/francescopepe/formigo/internal/messages"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/Pod-Point/go-queue-worker/internal/messages"
 )
 
 type SimpleInMemoryBrokerMessage struct {
