@@ -33,61 +33,59 @@ Let's create some simple examples to demonstrate how to use this library to proc
 ### Basic example
 
 ```go
-import (
-    "context"
-    "fmt"
-    "log"
-	
-    formigo "github.com/Pod-Point/go-queue-worker"
-    workerSqs "github.com/Pod-Point/go-queue-worker/clients/sqs"
+package main
 
-    "github.com/aws/aws-sdk-go-v2/aws"
-    "github.com/aws/aws-sdk-go-v2/config"
-    "github.com/aws/aws-sdk-go-v2/service/sqs"
-    "github.com/aws/aws-sdk-go-v2/service/sqs/types"
+import (
+	"context"
+	"log"
+
+	formigo "github.com/Pod-Point/go-queue-worker"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    awsCfg, err := config.LoadDefaultConfig(ctx)
-    if err != nil {
-        log.Fatalln("Unable to create AWS config", err)
-    }
+	queueUrl := "https://sqs.eu-west-1.amazonaws.com/123456789012/my-queue"
 
-    sqsSvc := sqs.NewFromConfig(awsCfg)
-    sqsClient, err := formigo.NewSqsClient(ctx, formigo.SqsClientConfiguration{
-        Svc: sqsSvc,
-        ReceiveMessageInput: &sqs.ReceiveMessageInput{
-            QueueUrl:            &queueUrl,
-            MaxNumberOfMessages: 1,
-            VisibilityTimeout:   30,
-            WaitTimeSeconds:     20,
-        },
-    })
-    if err != nil {
-        return fmt.Errorf("unable to create sqs client: %w", err)
-    }
+	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		log.Fatalln("Unable to create AWS config", err)
+	}
 
-    wkr := formigo.NewWorker(formigo.Configuration{
-        Client: sqsClient,
-        Concurrency: 100,
-        Consumer: formigo.NewMessageConsumer(formigo.MessageConsumerConfiguration{
-            Handler: func(ctx context.Context, msg formigo.Message) error {
-                log.Println("Got Message", msg.Content())
+	sqsSvc := sqs.NewFromConfig(awsCfg)
+	sqsClient, err := formigo.NewSqsClient(ctx, formigo.SqsClientConfiguration{
+		Svc: sqsSvc,
+		ReceiveMessageInput: &sqs.ReceiveMessageInput{
+			QueueUrl:            &queueUrl,
+			MaxNumberOfMessages: 10,
+			VisibilityTimeout:   30,
+			WaitTimeSeconds:     20,
+		},
+	})
+	if err != nil {
+		log.Fatalln("Unable to create sqs client", err)
+	}
 
-                // Assert the type of message to get the body or any other attributes
-                log.Println("Message body", *msg.Content().(types.Message).Body)
+	wkr := formigo.NewWorker(formigo.Configuration{
+		Client:      sqsClient,
+		Concurrency: 100,
+		Consumer: formigo.NewMessageConsumer(formigo.MessageConsumerConfiguration{
+			Handler: func(ctx context.Context, msg formigo.Message) error {
+				// Assert the type of message to get the body or any other attributes
+				log.Println("Message body", *msg.Content().(types.Message).Body)
 
-                return nil
-            },
-        }),
-    })
+				return nil
+			},
+		}),
+	})
 
-    err = wkr.Run(ctx)
-    if err != nil {
-        log.Fataln("Worker stopped with error", err)
-    }
+	if err := wkr.Run(ctx); err != nil {
+		log.Fatalln("Worker stopped with error", err)
+	}
 }
 ```
 
@@ -95,7 +93,7 @@ In this example, we have created a worker that consumes messages one at a time f
 
 By default, the worker's concurrency is set to 100, meaning it can process up to 100 messages concurrently, optimizing throughput and efficiency.
 
-If any errors occur during message handling, the worker will log them using log.PrintLn by default. Additionally, the worker is configured to stop if it encounters more than 3 errors within any 120-second interval.
+If any errors occur during message handling, the worker will log them using log.Println by default. Additionally, the worker is configured to stop if it encounters more than 3 errors within any 120-second interval.
 
 Please note that these are the default settings, and you can customize the concurrency level, error handling, and other parameters to suit your specific requirements.
 
@@ -103,74 +101,87 @@ Please note that these are the default settings, and you can customize the concu
 ### Batching
 
 ```go
+package main
+
 import (
-    "context"
-    "fmt"
-    "log"
+	"context"
+	"log"
+	"time"
 
-    formigo "github.com/Pod-Point/go-queue-worker"
-    workerSqs "github.com/Pod-Point/go-queue-worker/clients/sqs"
+	formigo "github.com/Pod-Point/go-queue-worker"
 
-    "github.com/aws/aws-sdk-go-v2/aws"
-    "github.com/aws/aws-sdk-go-v2/config"
-    "github.com/aws/aws-sdk-go-v2/service/sqs"
-    "github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 )
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    awsCfg, err := config.LoadDefaultConfig(ctx)
-    if err != nil {
-        log.Fatalln("Unable to create AWS config", err)
-    }
+	queueUrl := "https://sqs.eu-west-1.amazonaws.com/123456789012/my-queue"
 
-    sqsSvc := sqs.NewFromConfig(awsCfg)
-    sqsClient, err := formigo.NewSqsClient(ctx, formigo.SqsClientConfiguration{
-        Svc: sqsSvc,
-        ReceiveMessageInput: &sqs.ReceiveMessageInput{
-            QueueUrl:            &queueUrl,
-            MaxNumberOfMessages: 1,
-            VisibilityTimeout:   30,
-            WaitTimeSeconds:     20,
-        },
-    })
-    if err != nil {
-        return fmt.Errorf("unable to create sqs client: %w", err)
-    }
+	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		log.Fatalln("Unable to create AWS config", err)
+	}
 
-    wkr := formigo.NewWorker(formigo.Configuration{
-        Client: sqsClient,
-        Concurrency: 100,
-        Consumer: formigo.BatchConsumer(formigo.BatchConsumerConfiguration{
-            BufferConfig: formigo.BatchBufferConfiguration{
-                Size:    100,
-                Timeout: time.Second * 5,
-            },
-            Handler: func(ctx context.Context, msgs []formigo.Message) error {
-                log.Printf("Got %d messages to process\n", len(msgs)
+	sqsSvc := sqs.NewFromConfig(awsCfg)
+	sqsClient, err := formigo.NewSqsClient(ctx, formigo.SqsClientConfiguration{
+		Svc: sqsSvc,
+		ReceiveMessageInput: &sqs.ReceiveMessageInput{
+			QueueUrl:            &queueUrl,
+			MaxNumberOfMessages: 10,
+			VisibilityTimeout:   30,
+			WaitTimeSeconds:     20,
+		},
+	})
+	if err != nil {
+		log.Fatalln("Unable to create sqs client", err)
+	}
 
-                // Assert the type of message to get the body or any other attributes
+	wkr := formigo.NewWorker(formigo.Configuration{
+		Client:      sqsClient,
+		Concurrency: 100,
+		Consumer: formigo.NewBatchConsumer(formigo.BatchConsumerConfiguration{
+			BufferConfig: formigo.BatchConsumerBufferConfiguration{
+				Size:    100,
+				Timeout: time.Second * 5,
+			},
+			Handler: func(ctx context.Context, msgs []formigo.Message) (formigo.BatchResponse, error) {
+				log.Printf("Got %d messages to process\n", len(msgs))
 
-                for i, msg := range msgs {
-                    log.Printf("Message %d body: %s", i, *msg.Content().(types.Message).Body)
-                }
+				// Collect the ids of any messages that failed. They won't be deleted,
+				// so they return to the queue once their visibility timeout expires.
+				var failed []interface{}
 
-                return nil
-            },
-        }),
-    })
+				for _, msg := range msgs {
+					// Assert the type of message to get the body or any other attributes
+					body := *msg.Content().(types.Message).Body
 
-    err = wkr.Run(ctx)
-    if err != nil {
-        log.Fataln("Worker stopped with error", err)
-    }
+					if err := process(ctx, body); err != nil {
+						log.Println("Unable to process message", err)
+						failed = append(failed, msg.Id())
+					}
+				}
+
+				return formigo.BatchResponse{FailedMessagesId: failed}, nil
+			},
+		}),
+	})
+
+	if err := wkr.Run(ctx); err != nil {
+		log.Fatalln("Worker stopped with error", err)
+	}
 }
+
+func process(ctx context.Context, body string) error { return nil }
 ```
 
 In this example, we have created a worker that efficiently consumes batches of messages from an AWS SQS queue. The handler will be invoked either when the buffer is full or when a specified timeout expires.
 
 It's essential to note that the timer starts as soon as the first message is added to the buffer.
+
+Returning message ids in `BatchResponse.FailedMessagesId` marks those messages as failed: they are not deleted from the queue, so they become visible again once their visibility timeout expires. Every other message in the batch is deleted. Returning an error from the handler instead fails the whole batch and reports it to the `ErrorConfig.ReportFunc`.
 
 By processing messages in batches, the worker can significantly enhance throughput for specific use cases or reduce resource consumption. For instance, it can be leveraged for batch insertions or deletions.
 
@@ -182,7 +193,8 @@ By processing messages in batches, the worker can significantly enhance throughp
 | Concurrency   | Number of Go routines that process the messages from the Queue. Higher values are useful for slow I/O operations in the consumer's handler.     | 100           |
 | Retrievers    | Number of Go routines that retrieve messages from the Queue. Higher values are helpful for slow networks or when consumers are quicker.         | 1             |
 | ErrorConfig   | Defines the error threshold and interval for worker termination and error reporting function.                                                   | None          |
-| Consumer      | The message consumer, either MessageConsumer or BatchConsumer.                                                                                  | None          |
+| Consumer      | The message consumer, built with either `NewMessageConsumer` or `NewBatchConsumer`. This is a required configuration.                           | None          |
+| DeleterConfig | Size and timeout of the buffer that batches messages before they are deleted from the queue.                                                    | 10, 500ms     |
 
 ## License
 
