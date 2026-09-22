@@ -1,6 +1,6 @@
 module github.com/Pod-Point/go-queue-worker
 
-go 1.21
+go 1.26
 
 require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.34.5
