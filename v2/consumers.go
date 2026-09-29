@@ -11,7 +11,7 @@ import (
 )
 
 type BatchResponse struct {
-	FailedMessagesId []interface{}
+	FailedMessagesId []any
 }
 
 type MessageHandler = func(ctx context.Context, msg Message) error
@@ -225,7 +225,7 @@ func (c *batchConsumer) buildMessagesToDeleteFromBatchResponse(msgs []messages.M
 
 	toDelete := make([]messages.Message, 0, len(msgs))
 
-	failedMessagesIdIndexed := make(map[interface{}]struct{}, len(resp.FailedMessagesId))
+	failedMessagesIdIndexed := make(map[any]struct{}, len(resp.FailedMessagesId))
 	for _, id := range resp.FailedMessagesId {
 		failedMessagesIdIndexed[id] = struct{}{}
 	}

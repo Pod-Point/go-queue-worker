@@ -4,6 +4,6 @@ import "time"
 
 type Message interface {
 	ReceivedAt() time.Time
-	Content() interface{}
-	Id() interface{}
+	Content() any
+	Id() any
 }

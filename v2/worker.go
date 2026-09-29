@@ -13,18 +13,14 @@ type Worker struct {
 	client        client.Client
 	concurrency   int
 	retrievers    int
-	errorConfig   ErrorConfiguration
+	reportFunc    func(error)
 	consumer      Consumer
 	deleterConfig DeleterConfiguration
 }
 
 func (w Worker) Run(ctx context.Context) error {
-	// Create a new context with a cancel function used to stop the worker from the
-	// controller in case too many errors occur.
-	ctx, cancel := context.WithCancelCause(ctx)
-
-	// Create controller
-	ctrl := newController(w.errorConfig, cancel)
+	// Create a controller
+	ctrl := newController(w.reportFunc)
 
 	// Run retrievers and get the message channel
 	messageCh := w.runRetrievers(ctx, ctrl)
@@ -103,7 +99,7 @@ func NewWorker(config Configuration) Worker {
 		client:        config.Client,
 		concurrency:   config.Concurrency,
 		retrievers:    config.Retrievers,
-		errorConfig:   config.ErrorConfig,
+		reportFunc:    config.ReportFunc,
 		consumer:      config.Consumer,
 		deleterConfig: config.DeleterConfig,
 	}

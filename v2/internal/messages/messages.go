@@ -8,16 +8,16 @@ import (
 type Message struct {
 	Ctx          context.Context    `json:"-"` // Exclude from JSON
 	CancelCtx    context.CancelFunc `json:"-"` // Exclude from JSON
-	MsgId        interface{}        `json:"id"`
-	Msg          interface{}        `json:"content"`
+	MsgId        any                `json:"id"`
+	Msg          any                `json:"content"`
 	ReceivedTime time.Time          `json:"receivedAt"`
 }
 
-func (m Message) Id() interface{} {
+func (m Message) Id() any {
 	return m.MsgId
 }
 
-func (m Message) Content() interface{} {
+func (m Message) Content() any {
 	return m.Msg
 }
 

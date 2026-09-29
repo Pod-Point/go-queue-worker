@@ -172,11 +172,8 @@ func TestWorker(t *testing.T) {
 			Client:      inMemoryBroker,
 			Concurrency: 1,
 			Retrievers:  1,
-			ErrorConfig: ErrorConfiguration{
-				ReportFunc: func(err error) bool {
-					t.Fatalf("unexpected error: %v", err)
-					return true
-				},
+			ReportFunc: func(err error) {
+				t.Fatalf("unexpected error: %v", err)
 			},
 			Consumer: NewMessageConsumer(MessageConsumerConfiguration{
 				Handler: func(ctx context.Context, msg Message) error {
@@ -217,11 +214,8 @@ func TestWorker(t *testing.T) {
 			Client:      inMemoryBroker,
 			Concurrency: 1,
 			Retrievers:  1,
-			ErrorConfig: ErrorConfiguration{
-				ReportFunc: func(err error) bool {
-					t.Fatalf("unexpected error: %v", err)
-					return true
-				},
+			ReportFunc: func(err error) {
+				t.Fatalf("unexpected error: %v", err)
 			},
 			Consumer: NewBatchConsumer(BatchConsumerConfiguration{
 				BufferConfig: BatchConsumerBufferConfiguration{

@@ -1,24 +1,17 @@
 package formigo
 
-import (
-	"context"
-	"sync"
-)
-
 type controller struct {
-	errorConfig  ErrorConfiguration
-	errorCounter int
-	mutex        sync.Mutex
-	stopOnce     sync.Once
-	stopFunc     context.CancelCauseFunc
+	reportFunc func(error)
 }
 
 func (c *controller) reportError(err error) {
-	c.errorConfig.ReportFunc(err)
+	if c.reportFunc != nil {
+		c.reportFunc(err)
+	}
 }
 
-func newController(errorConfig ErrorConfiguration) *controller {
+func newController(reportFunc func(error)) *controller {
 	return &controller{
-		errorConfig: errorConfig,
+		reportFunc: reportFunc,
 	}
 }
