@@ -1,3 +1,5 @@
+// Package formigo exposes an extremely simple way to run SQS messages inside a worker pool with capped concurrency.
+// It also handles graceful shutdown, and ensures messages in-flight are completed on context cancellation.
 package formigo
 
 import (
@@ -188,6 +190,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	}
 }
 
+// Log will send a log record to a configured slog.Logger, if set.
 func (m *Manager) Log(ctx context.Context, level slog.Level, msg string, args ...any) {
 	if m.logger != nil {
 		m.logger.Log(ctx, level, msg, args...)
@@ -212,6 +215,7 @@ func NewManager(client Client, opts ...Option) *Manager {
 	return manager
 }
 
+// NewDefaultManager returns a Manager with all defaults set in the options.
 func NewDefaultManager(client Client) *Manager {
 	return &Manager{
 		client:            client,

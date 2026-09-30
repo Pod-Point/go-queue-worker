@@ -14,11 +14,13 @@ var (
 	ErrReceiptHandleEmpty = errors.New("formigo/v2: message ReceiptHandle is empty when deleting")
 )
 
+// SQSClient is an implementation of Client, and is a thin wrapper around AWS SQS.
 type SQSClient struct {
 	client *sqs.Client
 	input  *sqs.ReceiveMessageInput
 }
 
+// Fetch will attempt to fetch SQS messages from the configured queue, and convert them to Message.
 func (s SQSClient) Fetch(ctx context.Context) ([]Message, error) {
 	if s.client == nil {
 		return nil, ErrClientNil
@@ -36,6 +38,7 @@ func (s SQSClient) Fetch(ctx context.Context) ([]Message, error) {
 	return convert(output), nil
 }
 
+// Delete takes a message and deletes it from the queue.
 func (s SQSClient) Delete(ctx context.Context, msg Message) error {
 	if msg.ReceiptHandle == "" {
 		return ErrReceiptHandleEmpty
@@ -52,6 +55,7 @@ func (s SQSClient) Delete(ctx context.Context, msg Message) error {
 	return nil
 }
 
+// NewSQSClient makes a new SQSClient from an AWS SQS client and the parameters used for ReceiveMessage.
 func NewSQSClient(client *sqs.Client, input *sqs.ReceiveMessageInput) *SQSClient {
 	return &SQSClient{
 		client: client,
@@ -59,6 +63,7 @@ func NewSQSClient(client *sqs.Client, input *sqs.ReceiveMessageInput) *SQSClient
 	}
 }
 
+// convert will take sqs output and convert it into a slice of Message.
 func convert(output *sqs.ReceiveMessageOutput) []Message {
 	messages := make([]Message, 0, len(output.Messages))
 
