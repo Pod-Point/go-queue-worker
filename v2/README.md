@@ -13,56 +13,52 @@ Basic features of Pond:
 
 ## Usage
 
-In `main()`, you'll generally have the following:
+See `cmd/echo/main.go` for a complete example of how to use v2.
+
+### Consumers
+
+Your consumer should adhere to the following:
 
 ```go
-package main
+import formigo "github.com/Pod-Point/go-queue-worker/v2"
 
-import (
-	"context"
-	"log"
-	"time"
+func (context.Context, formigo.Message) error
+```
 
-	"libs/go/application"
+A `Decode` method is provided on formigo.Message to help ensure proper decoding with JSON SQS messages:
 
-	formigo "github.com/Pod-Point/go-queue-worker/v2"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
-)
-
-func main() {
-	// app here has a context that uses signal.NotifyContext to catch SIGTERM/SIGKILL/SIGHUP etc.
-	app := application.New().HandlesSigTerm()
-
-	app.Run(func(ctx context.Context) error {
-		cfg, err := config.LoadDefaultConfig(ctx)
-		if err != nil {
-			return err
-		}
-
-		client := formigo.NewSQSClient(sqs.NewFromConfig(cfg), &sqs.ReceiveMessageInput{
-			QueueUrl:            aws.String("https://sqs.eu-west-1.amazonaws.com/123456789012/my-queue"),
-			MaxNumberOfMessages: 10,
-			VisibilityTimeout:   30,
-			WaitTimeSeconds:     20,
-		})
-		
-		manager := formigo.NewManager(client,
-			formigo.WithDeadline(time.Second * 45),
-			formigo.WithFetchConcurrency(2),
-			formigo.WithFetchDelay(time.Second * 1),
-			formigo.WithWorkerConcurrency(20),
-			formigo.WithReporter(func(err error) {
-				log.Print(err) // send to sentry, structured logging, etc
-            }),
-			formigo.WithConsumer(func(ctx context.Context, msg formigo.Message) error {
-				return nil
-            }),
-        )
-		
-		return manager.Run(ctx)
-	})
+```go
+type Message struct {
+	Foo string `json:"foo"`
 }
 
+func (ctx context.Context, msg formigo.Message) error {
+	var body Message
+	if err := msg.Decode(&body); err != nil {
+		return err
+	}
+	// pass to your internal consumer, etc.
+}
 ```
+
+### Error Reporting
+
+If you need errors to be sent to Sentry, structured logging, etc, feel free to use `WithReporter` when setting up a manager.
+
+```go
+formigo.WithReporter(func(err error) {
+	sentry.CaptureException(err)
+})
+```
+
+### Other Options
+
+All other options should be fairly self-explanatory, and have godocs and defaults.
+
+## Shutting Down
+
+Ensure the context passed to `manager.Run(ctx)` is cancelable, preferrably via `signal.NotifyContext`.
+
+If it isn't, the program will have no exit condition until fully terminated by the operating system.
+
+See the example consumer to see how this is done.
