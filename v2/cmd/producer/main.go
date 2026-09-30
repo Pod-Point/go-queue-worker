@@ -14,8 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
-var usage = "USAGE: ./echo [level] \"[message]\""
-
 func main() {
 	ctx := context.Background()
 
@@ -26,7 +24,7 @@ func main() {
 	}
 
 	if len(os.Args[1:]) != 2 {
-		fmt.Printf(usage)
+		fmt.Println("USAGE: ./echo [level] \"[message]\"")
 	}
 
 	level := os.Args[1]
