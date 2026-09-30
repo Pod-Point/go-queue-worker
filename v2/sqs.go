@@ -52,6 +52,13 @@ func (s SQSClient) Delete(ctx context.Context, msg Message) error {
 	return nil
 }
 
+func NewSQSClient(client *sqs.Client, input *sqs.ReceiveMessageInput) *SQSClient {
+	return &SQSClient{
+		client: client,
+		input:  input,
+	}
+}
+
 func convert(output *sqs.ReceiveMessageOutput) []Message {
 	messages := make([]Message, 0, len(output.Messages))
 
