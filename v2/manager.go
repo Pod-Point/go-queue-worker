@@ -164,7 +164,9 @@ func (m *Manager) Fetch(ctx context.Context) error {
 
 			// allow configuring a delay after fetching messages
 			// this may help prevent excessive pressure on AWS.
-			time.Sleep(m.fetchDelay)
+			if m.fetchDelay > 0 {
+				time.Sleep(m.fetchDelay)
+			}
 		}
 	}
 }
@@ -242,7 +244,7 @@ func NewManager(client Client, opts ...Option) *Manager {
 func NewDefaultManager(client Client) *Manager {
 	return &Manager{
 		client:            client,
-		fetchDelay:        time.Millisecond * 500,
+		fetchDelay:        0,
 		fetchConcurrency:  2,
 		workerConcurrency: 20,
 		deadline:          time.Second * 30,
