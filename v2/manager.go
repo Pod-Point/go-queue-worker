@@ -51,7 +51,10 @@ func (m *Manager) Submit(msg Message) (err error) {
 
 		// make sure this consumer deletes the message from the queue when deferring.
 		// this one uses the background context with no deadline, and reports its own errors.
-		defer m.Delete(ctx, msg, err)
+		defer func() {
+			// wrapped in a func() to defer scope capture
+			m.Delete(ctx, msg, err)
+		}()
 
 		m.Log(ctx, slog.LevelDebug, "processing message",
 			slog.String("messageID", msg.ID),
