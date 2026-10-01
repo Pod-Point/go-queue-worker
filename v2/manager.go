@@ -121,6 +121,7 @@ func (m *Manager) Fetch(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			return ctx.Err()
 		default:
 			m.Log(ctx, slog.LevelDebug, "fetching messages")
 			messages, err := m.client.Fetch(ctx)
