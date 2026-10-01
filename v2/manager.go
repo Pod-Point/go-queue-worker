@@ -100,11 +100,29 @@ func (m *Manager) Delete(ctx context.Context, msg Message, err error) {
 	)
 
 	if err != nil {
-		m.Report(err)
+		switch {
+		case errors.Is(err, context.Canceled):
+			// in this specific case, we may have done the work but the context passed to us was cancelled.
+			// we may or may not *have* to delete here.
+			m.Log(ctx, slog.LevelDebug, "not deleting a context.Canceled message",
+				slog.String("messageID", msg.ID),
+				slog.String("error", err.Error()),
+			)
+			return
+		case errors.Is(err, context.DeadlineExceeded):
+			// do not delete from the queue if the deadline is exceeded.
+			// this needs to be reported as well, or it'll cause a problem
+			// for end users not seeing visibility or results.
+			m.Log(ctx, slog.LevelDebug, "not deleting a context.DeadlineExceeded message",
+				slog.String("messageID", msg.ID),
+				slog.String("error", err.Error()),
+			)
+			m.Report(err)
+			return
+		default:
+			m.Report(err)
+		}
 	}
-
-	// if err is a failure, we can choose if we retry here.
-	// TODO: retry strategy
 
 	if err := m.client.Delete(ctx, msg); err != nil {
 		m.Log(ctx, slog.LevelError, "failed to delete message",
@@ -124,6 +142,7 @@ func (m *Manager) Fetch(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			m.Log(ctx, slog.LevelDebug, "exiting fetch instance")
 			return ctx.Err()
 		default:
 			m.Log(ctx, slog.LevelDebug, "fetching messages")
