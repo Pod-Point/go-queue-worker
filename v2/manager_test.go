@@ -32,10 +32,11 @@ func TestNewDefaultManager_VerifiesDefaults(t *testing.T) {
 
 	assert.Nil(t, manager.consumer)
 	assert.Nil(t, manager.reporter)
+	assert.Nil(t, manager.logger)
 
 	assert.Equal(t, 2, manager.fetchConcurrency)
 	assert.Equal(t, 20, manager.workerConcurrency)
-	assert.Equal(t, time.Millisecond*500, manager.fetchDelay)
+	assert.Equal(t, 0, manager.fetchDelay)
 	assert.Equal(t, time.Second*30, manager.deadline)
 }
 
