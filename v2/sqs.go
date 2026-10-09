@@ -20,6 +20,8 @@ type SQSClient struct {
 	input  *sqs.ReceiveMessageInput
 }
 
+var _ Client = (*SQSClient)(nil)
+
 // Fetch will attempt to fetch SQS messages from the configured queue, and convert them to Message.
 func (s SQSClient) Fetch(ctx context.Context) ([]Message, error) {
 	if s.client == nil {
@@ -53,6 +55,18 @@ func (s SQSClient) Delete(ctx context.Context, msg Message) error {
 	}
 
 	return nil
+}
+
+// Release puts a message back onto the queue by removing the VisibilityTimeout.
+// Note that in some queues this might actually push it onto a deadletter queue.
+func (s SQSClient) Release(ctx context.Context, msg Message) error {
+	_, err := s.client.ChangeMessageVisibility(ctx, &sqs.ChangeMessageVisibilityInput{
+		QueueUrl:          s.input.QueueUrl,
+		ReceiptHandle:     &msg.ReceiptHandle,
+		VisibilityTimeout: 0,
+	})
+
+	return err
 }
 
 // NewSQSClient makes a new SQSClient from an AWS SQS client and the parameters used for ReceiveMessage.

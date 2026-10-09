@@ -37,6 +37,20 @@ func WithWorkerConcurrency(concurrency int) OptionFunc {
 	}
 }
 
+// WithQueueSize will set the maximum number of requests in flight before adds to the queue are rejected.
+// Note that fetches will be stopped while the queue is full, but any that exceed the queue size will be
+// dropped without being deleted, and have to wait until the VisibilityTimeout expires.
+//
+// It should be kept at a value that is manageable per-node, but should either stay constant or decrease over time.
+// If the WaitingTasks() output from Pool() shows an increasing trend, the queue is in an unsustainable state.
+//
+// Default: pond.Unbounded (math.MaxInt)
+func WithQueueSize(size int) OptionFunc {
+	return func(manager *Manager) {
+		manager.queueSize = size
+	}
+}
+
 // WithFetchConcurrency will set the number of workers that will be continuously fetching messages from the given queue.
 // Do not set this significantly higher than needed (3-4 is sufficient) or you may grow the queue backlog.
 //
