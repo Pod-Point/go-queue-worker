@@ -35,98 +35,49 @@ type Manager struct {
 	logger            *slog.Logger
 }
 
-func (m *Manager) submit(ctx context.Context, msg Message) error {
-	m.Log(ctx, slog.LevelDebug, "processing message",
-		slog.String("messageID", msg.ID),
-		slog.String("receiptHandle", msg.ReceiptHandle),
+// NewManager will create a new *Manager with the given client and options.
+func NewManager(client Client, opts ...Option) *Manager {
+	manager := NewDefaultManager(client)
+
+	for _, opt := range opts {
+		opt.Apply(manager)
+	}
+
+	manager.debug(context.Background(), "applied options",
+		slog.Int("workerConcurrency", manager.workerConcurrency),
+		slog.Int("fetchConcurrency", manager.fetchConcurrency),
+		slog.Duration("fetchDelay", manager.fetchDelay),
+		slog.Duration("deadline", manager.deadline),
 	)
 
-	err := m.consumer(ctx, msg)
-	if err != nil {
-		m.Log(ctx, slog.LevelInfo, "message: errored",
-			slog.String("messageID", msg.ID),
-			slog.String("error", err.Error()),
-		)
-	} else {
-		m.Log(ctx, slog.LevelInfo, "message: processed",
-			slog.String("messageID", msg.ID),
-		)
-	}
-
-	return err
+	return manager
 }
 
-func (m *Manager) withDeadline(ctx context.Context) (context.Context, context.CancelFunc) {
-	var cancel func()
-
-	if m.deadline > 0 {
-		return context.WithDeadline(ctx, time.Now().Add(m.deadline))
+// NewDefaultManager returns a Manager with all defaults set in the options.
+func NewDefaultManager(client Client) *Manager {
+	return &Manager{
+		client:            client,
+		fetchDelay:        0,
+		fetchConcurrency:  3,
+		workerConcurrency: 50,
+		deadline:          time.Second * 30,
 	}
-
-	return ctx, cancel
 }
 
 // Submit will push the message onto a consumer via the worker pool.
 func (m *Manager) Submit(msg Message) error {
 	m.pool.Submit(func() {
 		ctx, cancel := m.withDeadline(context.Background())
-		m.Log(ctx, slog.LevelDebug, "applying deadline",
-			slog.String("messageID", msg.ID),
-			slog.Duration("deadline", m.deadline),
-		)
+		m.debug(ctx, "applying deadline", msg, slog.Duration("deadline", m.deadline))
 
 		// immediately cancel the context after returning, and replace it for deletion.
 		err := m.submit(ctx, msg)
 		cancel()
 
-		// original error was a deadline expiry - do not delete and allow a second pass to resume.
-		// the consumer really should have idempotency here.
-		if errors.Is(err, context.DeadlineExceeded) {
-			m.Log(ctx, slog.LevelDebug, "deadline exceeded - dropping message",
-				slog.String("messageID", msg.ID),
-				slog.Duration("deadline", m.deadline),
-			)
-			return
-		}
-
-		if err != nil {
-			// in all other cases, we report this error.
-			// the only "expected" error in this situation is
-			m.Report(err)
-		}
-
-		// TODO: retry strategy (not present in v1, can be added with backwards compat in v2)
-		// - retry.ExponentialBackoff
-		// - retry.*
-		// - formigo.WithRetry(func (ctx, msg) (bool, time.Duration))
-
-		// finally: if we got this far, delete the message from the queue.
-		// all other cases have us exit out and not try again.
-		m.Delete(context.Background(), msg)
+		m.handleError(msg, err)
 	})
 
 	return nil
-}
-
-// Delete will call the Client's Delete method and remove a message from the queue.
-// This may succeed with no error, but still not remove the message (e.g. it was not the most recent fetch of this message).
-func (m *Manager) Delete(ctx context.Context, msg Message) {
-	m.Log(ctx, slog.LevelDebug, "deleting message",
-		slog.String("messageID", msg.ID),
-		slog.String("receiptHandle", msg.ReceiptHandle),
-	)
-
-	if err := m.client.Delete(ctx, msg); err != nil {
-		m.Log(ctx, slog.LevelError, "failed to delete message",
-			slog.String("messageID", msg.ID),
-			slog.String("error", err.Error()),
-		)
-		m.Report(err)
-	} else {
-		m.Log(ctx, slog.LevelInfo, "message deleted",
-			slog.String("messageID", msg.ID),
-		)
-	}
 }
 
 // Fetch will run a continuous loop of querying SQS for messages.
@@ -134,17 +85,17 @@ func (m *Manager) Fetch(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			m.Log(ctx, slog.LevelDebug, "exiting fetch instance")
+			m.debug(ctx, "exiting fetch instance")
 			return nil
 		default:
-			m.Log(ctx, slog.LevelDebug, "fetching messages")
+			m.debug(ctx, "fetching messages")
 			messages, err := m.client.Fetch(ctx)
 			if err != nil {
 				m.Report(err) // report errors with the initial fetch.
 				continue
 			}
 
-			m.Log(ctx, slog.LevelDebug, "fetched messages", slog.Int("count", len(messages)))
+			m.debug(ctx, "fetched messages", slog.Int("count", len(messages)))
 
 			// in the event that all workers are busy, this will block until one becomes available.
 			// these will also give an automatic error of pond.ErrPoolStopped if the workers have stopped.
@@ -153,14 +104,12 @@ func (m *Manager) Fetch(ctx context.Context) error {
 					// in this instance we should release
 					// the tasks in-flight via SQS immediately.
 					if errors.Is(err, pond.ErrPoolStopped) {
-						return m.release(context.Background(), msg)
+						return m.Release(context.Background(), msg)
 					}
 
 					m.Report(err)
 				}
 			}
-
-			m.Log(ctx, slog.LevelDebug, "waiting before polling", slog.Duration("delay", m.fetchDelay))
 
 			// allow configuring a delay after fetching messages
 			// this may help prevent excessive pressure on AWS.
@@ -168,19 +117,6 @@ func (m *Manager) Fetch(ctx context.Context) error {
 				time.Sleep(m.fetchDelay)
 			}
 		}
-	}
-}
-
-func (m *Manager) release(ctx context.Context, msg Message) error {
-	m.Log(ctx, slog.LevelWarn, "releasing message back to sqs", slog.String("messageID", msg.ID))
-
-	return m.client.Release(ctx, msg)
-}
-
-// Report will report an error whenever a func for it is set.
-func (m *Manager) Report(err error) {
-	if m.reporter != nil {
-		m.reporter(err)
 	}
 }
 
@@ -206,7 +142,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	// set up the fetchers to feed the workers and start them
 	fetcher := pond.NewPool(m.fetchConcurrency, pond.WithContext(ctx))
 	for i := range m.fetchConcurrency {
-		m.Log(ctx, slog.LevelInfo, "starting fetcher", slog.Int("id", i))
+		m.info(ctx, "starting sqs message polling", slog.Int("id", i))
 
 		fetcher.Submit(func() {
 			if err := m.Fetch(ctx); err != nil {
@@ -217,23 +153,16 @@ func (m *Manager) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		m.Log(ctx, slog.LevelInfo, "stopping fetchers")
+		m.info(ctx, "stopping sqs message polling")
 
 		// stop the fetcher first to be sure it has drained
 		fetcher.StopAndWait()
 
-		m.Log(ctx, slog.LevelInfo, "stopping workers")
+		m.info(ctx, "stopping queue workers")
 
 		// stop and drain the worker pool
 		m.pool.StopAndWait()
 		return ctx.Err()
-	}
-}
-
-// Log will send a log record to a configured slog.Logger, if set.
-func (m *Manager) Log(ctx context.Context, level slog.Level, msg string, args ...any) {
-	if m.logger != nil {
-		m.logger.Log(ctx, level, msg, args...)
 	}
 }
 
@@ -243,31 +172,88 @@ func (m *Manager) Pool() pond.Pool {
 	return m.pool
 }
 
-// NewManager will create a new *Manager with the given client and options.
-func NewManager(client Client, opts ...Option) *Manager {
-	manager := NewDefaultManager(client)
+func (m *Manager) Release(ctx context.Context, msg Message) error {
+	m.info(ctx, "releasing message back to sqs", msg)
 
-	for _, opt := range opts {
-		opt.Apply(manager)
-	}
-
-	manager.Log(context.Background(), slog.LevelInfo, "applied options",
-		slog.Int("workerConcurrency", manager.workerConcurrency),
-		slog.Int("fetchConcurrency", manager.fetchConcurrency),
-		slog.Duration("fetchDelay", manager.fetchDelay),
-		slog.Duration("deadline", manager.deadline),
-	)
-
-	return manager
+	return m.client.Release(ctx, msg)
 }
 
-// NewDefaultManager returns a Manager with all defaults set in the options.
-func NewDefaultManager(client Client) *Manager {
-	return &Manager{
-		client:            client,
-		fetchDelay:        0,
-		fetchConcurrency:  2,
-		workerConcurrency: 20,
-		deadline:          time.Second * 30,
+// Delete will call the Client's Delete method and remove a message from the queue.
+// This may succeed with no error, but still not remove the message (e.g. it was not the most recent fetch of this message).
+func (m *Manager) Delete(ctx context.Context, msg Message) {
+	m.debug(ctx, "deleting message", msg)
+
+	if err := m.client.Delete(ctx, msg); err != nil {
+		m.error(ctx, "failed to delete message", msg, err)
+		m.Report(err)
+	} else {
+		m.debug(ctx, "message deleted", msg)
 	}
+}
+
+// Report will report an error whenever a func for it is set.
+func (m *Manager) Report(err error) {
+	if m.reporter != nil {
+		m.reporter(err)
+	}
+}
+
+func (m *Manager) shouldRetry(msg Message, err error) bool {
+	// TODO: add a user-defined function here to hook into this process.
+	// TODO: retry strategy should use this function.
+
+	// func(msg Message, err error) bool
+
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return true
+	default:
+		return false
+	}
+}
+
+func (m *Manager) handleError(msg Message, err error) {
+	ctx := context.Background()
+
+	// normal operation - exit early.
+	if err == nil {
+		m.Delete(ctx, msg)
+		return
+	}
+
+	// check if we should retry this message
+	if m.shouldRetry(msg, err) {
+		m.debug(ctx, "retrying message", msg, err)
+
+		// release this message back to the queue immediately.
+		if err := m.Release(ctx, msg); err != nil {
+			m.Report(err)
+		}
+
+		return
+	}
+
+	// if we are not retrying, then this error is final.
+	m.Delete(context.Background(), msg)
+}
+
+func (m *Manager) submit(ctx context.Context, msg Message) error {
+	m.debug(ctx, "processing message", msg)
+
+	err := m.consumer(ctx, msg)
+	if err != nil {
+		m.error(ctx, "message: errored", msg, err)
+	} else {
+		m.info(ctx, "message: processed", msg)
+	}
+
+	return err
+}
+
+func (m *Manager) withDeadline(ctx context.Context) (context.Context, context.CancelFunc) {
+	if m.deadline > 0 {
+		return context.WithDeadline(ctx, time.Now().Add(m.deadline))
+	}
+
+	return context.WithCancel(ctx)
 }

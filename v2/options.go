@@ -30,7 +30,7 @@ func WithDeadline(deadline time.Duration) OptionFunc {
 // Set this high enough so that you can process a reasonably high number of messages,
 // but not so high that you throttle/cpu-limit the other workers.
 //
-// Default: 20
+// Default: 50
 func WithWorkerConcurrency(concurrency int) OptionFunc {
 	return func(manager *Manager) {
 		manager.workerConcurrency = concurrency
@@ -38,9 +38,9 @@ func WithWorkerConcurrency(concurrency int) OptionFunc {
 }
 
 // WithFetchConcurrency will set the number of workers that will be continuously fetching messages from the given queue.
-// Do not set this significantly higher than needed (3-4 is sufficient) or you may grow the queue backlog.
+// This will block on messages being sent into workers if it is unreasonably high (e.g. equal to WorkerConcurrency).
 //
-// Default: 2
+// Default: 3
 func WithFetchConcurrency(concurrency int) OptionFunc {
 	return func(manager *Manager) {
 		manager.fetchConcurrency = concurrency
@@ -55,7 +55,7 @@ func WithFetchDelay(delay time.Duration) OptionFunc {
 	}
 }
 
-// WithReporter will set the error reporting function (e.g. log
+// WithReporter will set the error reporting function (e.g. logging, sentry).
 func WithReporter(f func(error)) OptionFunc {
 	return func(manager *Manager) {
 		manager.reporter = f
@@ -70,6 +70,7 @@ func WithConsumer(f func(context.Context, Message) error) OptionFunc {
 	}
 }
 
+// WithLogger will set the internal logger for formigo.
 func WithLogger(logger *slog.Logger) OptionFunc {
 	return func(manager *Manager) {
 		manager.logger = logger
