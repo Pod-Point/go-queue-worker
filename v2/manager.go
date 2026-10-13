@@ -267,6 +267,6 @@ func NewDefaultManager(client Client) *Manager {
 		fetchConcurrency:  2,
 		workerConcurrency: 20,
 		deadline:          time.Second * 30,
-		queueSize:         pond.Unbounded,
+		queueSize:         0,
 	}
 }
