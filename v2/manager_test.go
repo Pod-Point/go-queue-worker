@@ -12,6 +12,10 @@ type TestClient struct {
 	//
 }
 
+func (t TestClient) Release(ctx context.Context, msg Message) error {
+	return nil
+}
+
 func (t TestClient) Fetch(ctx context.Context) ([]Message, error) {
 	return nil, nil
 }
@@ -36,8 +40,9 @@ func TestNewDefaultManager_VerifiesDefaults(t *testing.T) {
 
 	assert.Equal(t, 2, manager.fetchConcurrency)
 	assert.Equal(t, 20, manager.workerConcurrency)
-	assert.Equal(t, 0, manager.fetchDelay)
+	assert.Equal(t, time.Duration(0), manager.fetchDelay)
 	assert.Equal(t, time.Second*30, manager.deadline)
+	assert.Equal(t, 0, manager.queueSize)
 }
 
 func TestManager_Run_FailsWithoutConsumer(t *testing.T) {
