@@ -30,7 +30,6 @@ type Manager struct {
 	fetchDelay        time.Duration
 	fetchConcurrency  int
 	workerConcurrency int
-	queueSize         int
 	consumer          func(context.Context, Message) error
 	reporter          func(error)
 	logger            *slog.Logger
@@ -195,9 +194,12 @@ func (m *Manager) Run(ctx context.Context) error {
 		return ErrConsumerMissing
 	}
 
-	m.pool = pond.NewPool(m.workerConcurrency,
+	// we do not make queue size/blocking configurable here because it's a core feature.
+	// if we allow a queue size, then we can lose messages from the fetching workers.
+	m.pool = pond.NewPool(
+		m.workerConcurrency,
 		pond.WithContext(ctx),
-		pond.WithQueueSize(m.queueSize),
+		pond.WithQueueSize(0),
 		pond.WithNonBlocking(false),
 	)
 
@@ -267,6 +269,5 @@ func NewDefaultManager(client Client) *Manager {
 		fetchConcurrency:  2,
 		workerConcurrency: 20,
 		deadline:          time.Second * 30,
-		queueSize:         0,
 	}
 }

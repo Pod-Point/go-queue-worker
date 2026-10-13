@@ -42,7 +42,6 @@ func TestNewDefaultManager_VerifiesDefaults(t *testing.T) {
 	assert.Equal(t, 20, manager.workerConcurrency)
 	assert.Equal(t, time.Duration(0), manager.fetchDelay)
 	assert.Equal(t, time.Second*30, manager.deadline)
-	assert.Equal(t, 0, manager.queueSize)
 }
 
 func TestManager_Run_FailsWithoutConsumer(t *testing.T) {
