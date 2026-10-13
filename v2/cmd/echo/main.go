@@ -49,7 +49,6 @@ func main() {
 		formigo.WithDeadline(time.Second*4),
 		formigo.WithFetchConcurrency(2),
 		formigo.WithWorkerConcurrency(100),
-		formigo.WithQueueSize(0),
 		formigo.WithReporter(func(err error) {
 			slog.Error(err.Error(), slog.String("type", fmt.Sprintf("%T", err)))
 		}),
