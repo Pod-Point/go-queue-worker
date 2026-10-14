@@ -33,6 +33,7 @@ type Manager struct {
 	consumer          func(context.Context, Message) error
 	reporter          func(error)
 	logger            *slog.Logger
+	retryFunc         func(Message, error) bool
 }
 
 // NewManager will create a new *Manager with the given client and options.
@@ -207,18 +208,13 @@ func (m *Manager) Report(err error) {
 	}
 }
 
+// shouldRetry will check for a user-defined retry function, otherwise defaulting to true.
 func (m *Manager) shouldRetry(msg Message, err error) bool {
-	// TODO: add a user-defined function here to hook into this process.
-	// TODO: retry strategy should use this function.
-
-	// func(msg Message, err error) bool
-
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return true
-	default:
-		return false
+	if m.retryFunc != nil {
+		return m.retryFunc(msg, err)
 	}
+
+	return true
 }
 
 func (m *Manager) handleError(msg Message, err error) {

@@ -56,6 +56,7 @@ func WithFetchDelay(delay time.Duration) OptionFunc {
 }
 
 // WithReporter will set the error reporting function (e.g. logging, sentry).
+// Default: nil
 func WithReporter(f func(error)) OptionFunc {
 	return func(manager *Manager) {
 		manager.reporter = f
@@ -71,8 +72,21 @@ func WithConsumer(f func(context.Context, Message) error) OptionFunc {
 }
 
 // WithLogger will set the internal logger for formigo.
+// Default: nil
 func WithLogger(logger *slog.Logger) OptionFunc {
 	return func(manager *Manager) {
 		manager.logger = logger
+	}
+}
+
+// WithRetry will set a user-defined function to retry messages based on the message and the error.
+// Note that the context is not included as it is always cancelled at this point.
+// Also note that if you have a dead-letter queue configured, it will take precedence over this
+// if the number of releases exceeds its pre-defined limit.
+//
+// Default: always retry on error and allow the message to hit a dead-letter queue.
+func WithRetry(f func(Message, error) bool) OptionFunc {
+	return func(manager *Manager) {
+		manager.retryFunc = f
 	}
 }
