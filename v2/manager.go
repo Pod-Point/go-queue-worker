@@ -66,6 +66,15 @@ func NewDefaultManager(client Client) *Manager {
 
 // Submit will push the message onto a consumer via the worker pool.
 func (m *Manager) Submit(msg Message) error {
+	// this is an atomic check
+	if m.pool.Stopped() {
+		if m.pool.Context().Err() != nil {
+			return errors.Join(pond.ErrContextCanceled, m.pool.Context().Err())
+		}
+
+		return pond.ErrPoolStopped
+	}
+
 	m.pool.Submit(func() {
 		ctx, cancel := m.withDeadline(context.Background())
 		m.debug(ctx, "applying deadline", msg, slog.Duration("deadline", m.deadline))
