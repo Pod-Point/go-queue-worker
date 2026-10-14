@@ -232,7 +232,7 @@ func (m *Manager) handleError(msg Message, err error) {
 
 	// check if we should retry this message
 	if m.shouldRetry(msg, err) {
-		m.debug(ctx, "retrying message", msg, err)
+		m.debug(ctx, "releasing message for retry", msg, err)
 
 		// release this message back to the queue immediately.
 		if err := m.Release(ctx, msg); err != nil {
@@ -253,7 +253,7 @@ func (m *Manager) submit(ctx context.Context, msg Message) error {
 	if err != nil {
 		m.error(ctx, "message: errored", msg, err)
 	} else {
-		m.info(ctx, "message: processed", msg)
+		m.debug(ctx, "message: processed", msg)
 	}
 
 	return err
