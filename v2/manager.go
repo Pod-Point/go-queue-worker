@@ -225,6 +225,8 @@ func (m *Manager) handleError(msg Message, err error) {
 		return
 	}
 
+	m.Report(err) // always report the error.
+
 	// check if we should retry this message
 	if m.shouldRetry(msg, err) {
 		m.debug(ctx, "releasing message for retry", msg, err)
@@ -238,7 +240,6 @@ func (m *Manager) handleError(msg Message, err error) {
 	}
 
 	// if we are not retrying, then this error is final.
-	m.Report(err)
 	m.Delete(context.Background(), msg)
 }
 
