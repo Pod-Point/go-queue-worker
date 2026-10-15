@@ -69,7 +69,7 @@ func main() {
 	)
 
 	if err := manager.Run(ctx); err != nil {
-		//
+		log.Print(err)
 	}
 
 	pool := manager.Pool()

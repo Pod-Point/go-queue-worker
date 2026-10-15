@@ -39,10 +39,6 @@ func (m *Manager) error(ctx context.Context, msg string, args ...any) {
 	m.log(ctx, slog.LevelError, msg, args...)
 }
 
-func (m *Manager) warn(ctx context.Context, msg string, args ...any) {
-	m.log(ctx, slog.LevelWarn, msg, args...)
-}
-
 func (m *Manager) info(ctx context.Context, msg string, args ...any) {
 	m.log(ctx, slog.LevelInfo, msg, args...)
 }

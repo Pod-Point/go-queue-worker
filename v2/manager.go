@@ -161,19 +161,18 @@ func (m *Manager) Run(ctx context.Context) error {
 		})
 	}
 
-	select {
-	case <-ctx.Done():
-		m.info(ctx, "stopping sqs message polling")
+	<-ctx.Done()
 
-		// stop the fetcher first to be sure it has drained
-		fetcher.StopAndWait()
+	m.info(ctx, "stopping sqs message polling")
 
-		m.info(ctx, "stopping queue workers")
+	// stop the fetcher first to be sure it has drained
+	fetcher.StopAndWait()
 
-		// stop and drain the worker pool
-		m.pool.StopAndWait()
-		return ctx.Err()
-	}
+	m.info(ctx, "stopping queue workers")
+
+	// stop and drain the worker pool
+	m.pool.StopAndWait()
+	return ctx.Err()
 }
 
 // Pool exists to expose the internal workings of the queue worker for testing and metrics.
