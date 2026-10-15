@@ -238,6 +238,7 @@ func (m *Manager) handleError(msg Message, err error) {
 	}
 
 	// if we are not retrying, then this error is final.
+	m.Report(err)
 	m.Delete(context.Background(), msg)
 }
 
