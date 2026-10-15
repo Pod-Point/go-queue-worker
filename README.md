@@ -152,7 +152,7 @@ func main() {
 
 				// Collect the ids of any messages that failed. They won't be deleted,
 				// so they return to the queue once their visibility timeout expires.
-				var failed []interface{}
+				var failed []any
 
 				for _, msg := range msgs {
 					// Assert the type of message to get the body or any other attributes

@@ -24,6 +24,20 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.13
+  golangci-v2:
+    name: lint-v2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.13
+          working-directory: v2
 
   govulncheck:
     runs-on: ubuntu-latest
